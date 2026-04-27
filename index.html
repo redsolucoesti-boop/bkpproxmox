@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PVE SaaS — Painel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #080c10;
+    --surface:   #0d1117;
+    --border:    #1c2330;
+    --border2:   #243040;
+    --text:      #c9d3e0;
+    --muted:     #4a5568;
+    --accent:    #00d4ff;
+    --accent2:   #0099cc;
+    --green:     #00e676;
+    --green-dim: #00e67620;
+    --red:       #ff3d57;
+    --red-dim:   #ff3d5720;
+    --yellow:    #ffc845;
+    --mono:      'JetBrains Mono', monospace;
+    --sans:      'Syne', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,212,255,.012) 2px,
+      rgba(0,212,255,.012) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── LOGIN SCREEN ── */
+  #login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .login-box {
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    padding: 48px 40px;
+    position: relative;
+    animation: fadeUp .5s ease both;
+  }
+
+  .login-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .login-logo {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 22px;
+    color: #fff;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+
+  .login-logo span { color: var(--accent); }
+
+  .login-sub {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+
+  .field-label {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .field-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .field-input:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border: none;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+    user-select: none;
+  }
+
+  .btn:hover  { background: #33ddff; }
+  .btn:active { transform: scale(.97); }
+
+  .btn.btn-full { width: 100%; justify-content: center; }
+
+  .btn.btn-ghost {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--border2);
+    font-size: 11px;
+    padding: 7px 14px;
+  }
+  .btn.btn-ghost:hover { border-color: var(--accent); background: rgba(0,212,255,.06); }
+
+  .btn.btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid #ff3d5730;
+    font-size: 11px;
+    padding: 7px 14px;
+  }
+  .btn.btn-danger:hover { background: var(--red-dim); }
+
+  .login-error {
+    color: var(--red);
+    font-size: 11px;
+    margin-top: 12px;
+    min-height: 18px;
+    letter-spacing: .04em;
+  }
+
+  /* ── MAIN APP ── */
+  #app { display: none; height: 100vh; flex-direction: column; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 24px;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .topbar-logo {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 16px;
+    color: #fff;
+    letter-spacing: -0.3px;
+    flex-shrink: 0;
+  }
+  .topbar-logo span { color: var(--accent); }
+
+  .topbar-nav { display: flex; gap: 2px; flex: 1; }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: color .2s, background .2s;
+    border-bottom: 2px solid transparent;
+  }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .user-badge strong { color: var(--text); }
+  .role-tag {
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    background: rgba(0,212,255,.12);
+    color: var(--accent);
+    border: 1px solid rgba(0,212,255,.25);
+  }
+
+  /* ── MAIN CONTENT ── */
+  .main-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+  }
+
+  .panel { display: none; flex: 1; overflow-y: auto; padding: 28px; }
+  .panel.active { display: block; }
+
+  /* ── SECTION HEADING ── */
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+
+  .section-title {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 18px;
+    color: #fff;
+    letter-spacing: -0.3px;
+  }
+  .section-title small {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp .4s ease both;
+  }
+
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: .3;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: var(--sans);
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .stat-value.green { color: var(--green); }
+  .stat-value.red   { color: var(--red); }
+
+  /* ── TABLE ── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .data-table th {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border2);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .data-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--text);
+  }
+
+  .data-table tr:hover td { background: rgba(255,255,255,.02); }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    animation: fadeUp .4s ease both;
+  }
+
+  /* ── EVENTS ── */
+  .event-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .select-input {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    cursor: pointer;
+    min-width: 180px;
+  }
+  .select-input:focus { border-color: var(--accent); }
+
+  .event-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .event-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: start;
+    animation: fadeUp .25s ease both;
+    transition: background .15s;
+  }
+  .event-card:hover { background: #0f1822; }
+  .event-card.ok    { border-left-color: var(--green); }
+  .event-card.error { border-left-color: var(--red); }
+
+  .event-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .ok    .event-status-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .error .event-status-dot { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+  .event-body { min-width: 0; }
+  .event-host {
+    font-weight: 700;
+    color: #fff;
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+  .event-msg {
+    color: var(--muted);
+    font-size: 11px;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+  .event-time {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    text-align: right;
+    letter-spacing: .04em;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid;
+  }
+  .badge-ok    { color: var(--green); background: var(--green-dim); border-color: #00e67640; }
+  .badge-error { color: var(--red);   background: var(--red-dim);   border-color: #ff3d5740; }
+  .badge-admin { color: var(--yellow); background: #ffc84520; border-color: #ffc84540; }
+  .badge-viewer { color: var(--muted); background: transparent; border-color: var(--border2); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.75);
+    backdrop-filter: blur(3px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    padding: 36px;
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+    animation: fadeUp .25s ease both;
+  }
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .modal-title {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 17px;
+    color: #fff;
+    margin-bottom: 24px;
+  }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 24px; justify-content: flex-end; }
+
+  .secret-box {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    word-break: break-all;
+    margin-top: 14px;
+    letter-spacing: .05em;
+  }
+
+  /* ── PAGINATION ── */
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── EMPTY / LOADER ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .empty-state span { display: block; font-size: 32px; margin-bottom: 12px; opacity: .3; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    padding: 12px 18px;
+    font-size: 12px;
+    color: var(--text);
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    max-width: 320px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.err  { border-left-color: var(--red); }
+
+  /* ── WEBHOOK INFO ── */
+  .webhook-url {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    word-break: break-all;
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: color .2s, border-color .2s;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">PVE<span>SaaS</span></div>
+    <div class="login-sub">Proxmox Event Panel</div>
+
+    <label class="field-label">Usuário</label>
+    <input id="li-user" class="field-input" type="text" autocomplete="username" placeholder="admin">
+
+    <label class="field-label">Senha</label>
+    <input id="li-pass" class="field-input" type="password" autocomplete="current-password" placeholder="••••••••">
+
+    <button class="btn btn-full" onclick="doLogin()">→ Entrar</button>
+    <div id="login-err" class="login-error"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════ -->
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-logo">PVE<span>SaaS</span></div>
+    <nav class="topbar-nav">
+      <button class="nav-btn active" onclick="showPanel('events')">Eventos</button>
+      <button class="nav-btn" onclick="showPanel('clients')">Clientes</button>
+      <button class="nav-btn admin-only" onclick="showPanel('users')" style="display:none">Usuários</button>
+    </nav>
+    <div class="topbar-right">
+      <div class="user-badge">
+        <strong id="top-username">—</strong>
+        <span id="top-role" class="role-tag">—</span>
+      </div>
+      <button class="btn btn-ghost" onclick="doLogout()">Sair</button>
+    </div>
+  </header>
+
+  <div class="main-content">
+
+    <!-- EVENTOS -->
+    <div id="panel-events" class="panel active">
+      <div class="section-head">
+        <div class="section-title">
+          Eventos
+          <small>Histórico em tempo real</small>
+        </div>
+      </div>
+
+      <div class="stats-row" id="event-stats">
+        <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="st-total">—</div></div>
+        <div class="stat-card"><div class="stat-label">OK</div><div class="stat-value green" id="st-ok">—</div></div>
+        <div class="stat-card"><div class="stat-label">Erros</div><div class="stat-value red" id="st-err">—</div></div>
+      </div>
+
+      <div class="event-filters">
+        <select id="ev-client" class="select-input" onchange="loadEvents(1)">
+          <option value="">— Selecione um cliente —</option>
+        </select>
+        <button class="btn btn-ghost" onclick="loadEvents(1)"><span class="spinner" id="ev-spinner" style="display:none"></span> Atualizar</button>
+      </div>
+
+      <div id="event-list" class="event-list">
+        <div class="empty-state"><span>◎</span>Selecione um cliente para ver os eventos</div>
+      </div>
+
+      <div class="pagination" id="ev-pagination"></div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div id="panel-clients" class="panel">
+      <div class="section-head">
+        <div class="section-title">
+          Clientes
+          <small>Gerenciar integrações</small>
+        </div>
+        <button class="btn" onclick="openModal('modal-add-client')">+ Novo Cliente</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nome</th>
+              <th>Webhook URL</th>
+              <th>Secret</th>
+              <th>Telegram</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="clients-tbody">
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USUÁRIOS -->
+    <div id="panel-users" class="panel">
+      <div class="section-head">
+        <div class="section-title">
+          Usuários
+          <small>Controle de acesso</small>
+        </div>
+        <button class="btn" onclick="openModal('modal-add-user')">+ Novo Usuário</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>#</th><th>Usuário</th><th>Role</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ MODAL: NOVO CLIENTE ═══ -->
+<div class="modal-overlay" id="modal-add-client">
+  <div class="modal">
+    <div class="modal-title">Novo Cliente</div>
+
+    <label class="field-label">Nome</label>
+    <input id="nc-name" class="field-input" type="text" placeholder="Ex: Empresa XYZ">
+
+    <label class="field-label">Telegram Token (opcional)</label>
+    <input id="nc-tg-token" class="field-input" type="text" placeholder="bot123456:ABC...">
+
+    <label class="field-label">Telegram Chat ID (opcional)</label>
+    <input id="nc-tg-chat" class="field-input" type="text" placeholder="-100123456789">
+
+    <div id="nc-result" style="display:none">
+      <div class="field-label" style="color:var(--green)">✓ Cliente criado — guarde o secret abaixo</div>
+      <div class="secret-box" id="nc-secret-box"></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px">⚠ Este secret não será exibido novamente.</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-client')">Fechar</button>
+      <button class="btn" id="nc-btn" onclick="createClient()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: NOVO USUÁRIO ═══ -->
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal">
+    <div class="modal-title">Novo Usuário</div>
+
+    <label class="field-label">Usuário</label>
+    <input id="nu-name" class="field-input" type="text" placeholder="username">
+
+    <label class="field-label">Senha</label>
+    <input id="nu-pass" class="field-input" type="password" placeholder="Mínimo 8 caracteres">
+
+    <label class="field-label">Role</label>
+    <select id="nu-role" class="select-input" style="margin-bottom:18px">
+      <option value="viewer">viewer</option>
+      <option value="admin">admin</option>
+    </select>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-user')">Cancelar</button>
+      <button class="btn" onclick="createUser()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+/* ─────────────── STATE ─────────────── */
+let TOKEN = null, ROLE = null, USERNAME = null;
+let currentPage = 1;
+const BASE = '';
+
+/* ─────────────── HELPERS ─────────────── */
+function api(path, opts = {}) {
+  return fetch(BASE + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': TOKEN ? `Bearer ${TOKEN}` : '',
+      ...(opts.headers || {})
+    }
+  });
+}
+
+function toast(msg, err = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = '', 3000);
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.getElementById('nc-result').style.display = 'none';
+  document.getElementById('nc-btn').style.display = '';
+}
+
+/* ─────────────── AUTH ─────────────── */
+async function doLogin() {
+  const user = document.getElementById('li-user').value.trim();
+  const pass = document.getElementById('li-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+
+  if (!user || !pass) { errEl.textContent = 'Preencha todos os campos.'; return; }
+
+  const fd = new FormData();
+  fd.append('username', user);
+  fd.append('password', pass);
+
+  const r = await fetch(BASE + '/login', { method: 'POST', body: fd });
+  const data = await r.json();
+
+  if (!r.ok) { errEl.textContent = data.detail || 'Erro de autenticação.'; return; }
+
+  TOKEN = data.token;
+  ROLE = data.role;
+  USERNAME = data.username;
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('top-username').textContent = USERNAME;
+  document.getElementById('top-role').textContent = ROLE;
+
+  if (ROLE === 'admin') {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+  }
+
+  loadClients();
+  loadEvents(1);
+}
+
+document.getElementById('li-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogout() {
+  TOKEN = null; ROLE = null; USERNAME = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('li-pass').value = '';
+  document.getElementById('login-err').textContent = '';
+}
+
+/* ─────────────── PANELS ─────────────── */
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'users') loadUsers();
+  if (name === 'clients') loadClients();
+}
+
+/* ─────────────── CLIENTS ─────────────── */
+async function loadClients() {
+  const r = await api('/api/clients');
+  if (!r.ok) return;
+  const clients = await r.json();
+
+  // populate select
+  const sel = document.getElementById('ev-client');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Selecione um cliente —</option>';
+  clients.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = `#${c.id} — ${c.name}`;
+    sel.appendChild(o);
+  });
+  if (prev) sel.value = prev;
+
+  // populate table
+  const tbody = document.getElementById('clients-tbody');
+  if (!clients.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Nenhum cliente cadastrado.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = clients.map(c => `
+    <tr>
+      <td style="color:var(--muted)">${c.id}</td>
+      <td style="font-weight:700;color:#fff">${esc(c.name)}</td>
+      <td><span class="webhook-url">${location.origin}/webhook/${c.id}</span>
+          <button class="copy-btn" onclick="copyText('${location.origin}/webhook/${c.id}')">copiar</button></td>
+      <td><code style="font-size:10px;color:var(--muted)">${c.webhook_secret.slice(0,12)}…</code>
+          <button class="copy-btn" onclick="copyText('${esc(c.webhook_secret)}')">copiar</button></td>
+      <td>${c.telegram_token ? '<span class="badge-ok status-badge">✓ Ativo</span>' : '<span style="color:var(--muted);font-size:10px">—</span>'}</td>
+      <td><button class="btn btn-danger" onclick="deleteClient(${c.id}, '${esc(c.name)}')">Excluir</button></td>
+    </tr>
+  `).join('');
+}
+
+async function createClient() {
+  const name = document.getElementById('nc-name').value.trim();
+  if (!name) { toast('Nome obrigatório', true); return; }
+
+  const r = await api('/api/clients', {
+    method: 'POST',
+    body: JSON.stringify({
+      name,
+      telegram_token:   document.getElementById('nc-tg-token').value.trim() || null,
+      telegram_chat_id: document.getElementById('nc-tg-chat').value.trim()  || null,
+    })
+  });
+  const data = await r.json();
+  if (!r.ok) { toast(data.detail || 'Erro', true); return; }
+
+  document.getElementById('nc-secret-box').textContent =
+    `ID: ${data.id}\nSecret: ${data.webhook_secret}`;
+  document.getElementById('nc-result').style.display = 'block';
+  document.getElementById('nc-btn').style.display = 'none';
+  document.getElementById('nc-name').value = '';
+  loadClients();
+}
+
+async function deleteClient(id, name) {
+  if (!confirm(`Excluir cliente "${name}" e todos os seus eventos?`)) return;
+  const r = await api(`/api/clients/${id}`, { method: 'DELETE' });
+  if (r.ok) { toast('Cliente excluído'); loadClients(); }
+  else toast('Erro ao excluir', true);
+}
+
+/* ─────────────── USERS ─────────────── */
+async function loadUsers() {
+  const r = await api('/api/users');
+  if (!r.ok) return;
+  const users = await r.json();
+  const tbody = document.getElementById('users-tbody');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Nenhum usuário.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td style="color:var(--muted)">${u.id}</td>
+      <td style="font-weight:700;color:#fff">${esc(u.username)}</td>
+      <td><span class="status-badge ${u.role === 'admin' ? 'badge-admin' : 'badge-viewer'}">${u.role}</span></td>
+      <td><button class="btn btn-danger" onclick="deleteUser(${u.id},'${esc(u.username)}')">Excluir</button></td>
+    </tr>
+  `).join('');
+}
+
+async function createUser() {
+  const username = document.getElementById('nu-name').value.trim();
+  const password = document.getElementById('nu-pass').value;
+  const role     = document.getElementById('nu-role').value;
+  if (!username || password.length < 8) { toast('Usuário e senha (mín. 8 chars) obrigatórios', true); return; }
+
+  const r = await api('/api/users', {
+    method: 'POST',
+    body: JSON.stringify({ username, password, role })
+  });
+  const data = await r.json();
+  if (!r.ok) { toast(data.detail || 'Erro', true); return; }
+
+  toast('Usuário criado com sucesso');
+  closeModal('modal-add-user');
+  document.getElementById('nu-name').value = '';
+  document.getElementById('nu-pass').value = '';
+  loadUsers();
+}
+
+async function deleteUser(id, name) {
+  if (!confirm(`Excluir usuário "${name}"?`)) return;
+  const r = await api(`/api/users/${id}`, { method: 'DELETE' });
+  if (r.ok) { toast('Usuário excluído'); loadUsers(); }
+  else { const d = await r.json(); toast(d.detail || 'Erro', true); }
+}
+
+/* ─────────────── EVENTS ─────────────── */
+async function loadEvents(page = 1) {
+  const clientId = document.getElementById('ev-client').value;
+  if (!clientId) return;
+
+  currentPage = page;
+  const spinner = document.getElementById('ev-spinner');
+  spinner.style.display = 'inline-block';
+
+  const r = await api(`/api/events/${clientId}?page=${page}&limit=50`);
+  spinner.style.display = 'none';
+
+  if (!r.ok) { toast('Erro ao carregar eventos', true); return; }
+  const data = await r.json();
+
+  // stats
+  const ok  = data.events.filter(e => e.status === 'ok').length;
+  const err = data.events.filter(e => e.status === 'error').length;
+  document.getElementById('st-total').textContent = data.total;
+  document.getElementById('st-ok').textContent    = ok;
+  document.getElementById('st-err').textContent   = err;
+
+  // list
+  const list = document.getElementById('event-list');
+  if (!data.events.length) {
+    list.innerHTML = '<div class="empty-state"><span>◎</span>Nenhum evento encontrado</div>';
+    document.getElementById('ev-pagination').innerHTML = '';
+    return;
+  }
+
+  list.innerHTML = data.events.map(e => `
+    <div class="event-card ${e.status}">
+      <div class="event-status-dot"></div>
+      <div class="event-body">
+        <div class="event-host">${esc(e.host || '(sem hostname)')}</div>
+        <div class="event-msg">${esc(e.msg)}</div>
+      </div>
+      <div class="event-time">${formatTime(e.time)}</div>
+    </div>
+  `).join('');
+
+  // pagination
+  const pages = Math.ceil(data.total / data.limit);
+  const pag = document.getElementById('ev-pagination');
+  if (pages <= 1) { pag.innerHTML = ''; return; }
+  pag.innerHTML = `
+    <button class="btn btn-ghost" ${page <= 1 ? 'disabled' : ''} onclick="loadEvents(${page - 1})">← Anterior</button>
+    <span>Página ${page} de ${pages}</span>
+    <button class="btn btn-ghost" ${page >= pages ? 'disabled' : ''} onclick="loadEvents(${page + 1})">Próxima →</button>
+  `;
+}
+
+/* ─────────────── UTILS ─────────────── */
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copiado para a área de transferência');
+  } catch { toast('Erro ao copiar', true); }
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeModal(overlay.id);
+  });
+});
+</script>
+</body>
+</html>
